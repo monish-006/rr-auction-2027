@@ -1,0 +1,57 @@
+check,value,detail
+selected_metadata_matches,853,
+selected_matches_without_decisive_winner,41,"No-result, abandoned, and tied matches are excluded from win-probability model training."
+selected_matches_with_deliveries,837,
+selected_matches_without_deliveries,16,
+selected_delivery_rows_after_super_over_exclusion,193988,
+duplicate_delivery_keys,0,
+source_delivery_rows_without_match_metadata,0,
+super_over_rows_excluded,26,
+duplicate_playing_eleven_keys,40,Deduplicated for roster validation; delivery records remain the scoring source.
+duplicate_match_ids,0,
+duplicate_competition_ids,0,
+duplicate_competition_team_keys,0,
+duplicate_competition_team_player_keys,0,
+batter_delivery_players_not_in_roster,0,Retained from ball-by-ball IDs (likely impact-substitution coverage).
+bowler_delivery_players_not_in_roster,0,
+batting_team_not_home_or_away_rows,0,
+wickets_with_missing_dismissed_player_id,1,
+dismissed_player_not_striker_or_non_striker,0,Non-striker run-outs are retained and attributed by dismissed_player_id.
+credited_wickets_with_missing_bowler_id,0,
+unclassified_extra_rows_with_extra_runs,2,Extra amounts on rows with no extras_type are included in team totals but not bowler-charged runs.
+other_extra_rows,259,Treated as no-balls based on delivery-number patterns.
+other_extra_rows_in_overs_with_more_than_six_balls,251,
+wide_and_penalty_rows_excluded_from_batter_opportunities,7473,No-balls count as batter opportunities; wides and administrative penalty rows do not.
+second_innings_rows_without_target,136,
+scheduled_ball_limits_not_default_120,36,Revised-limit metadata values are multiples of six and are used as ball counts.
+selected_dls_matches,14,
+dls_matches_missing_revised_target,2,A DLS chase without a revised target has target_runs=NaN and state_valid=False; no first-innings fallback is used.
+incomplete_innings,18,"Confirmed incomplete when a no-result/abandoned innings has no evidence of reaching all-out, its known schedule, or its target."
+innings_completion_unknown,26,"Completion cannot be established from the available result, wickets, target, and schedule fields."
+future_run_labels_excluded,3851,Future-innings-run labels are training-eligible only for completed innings with valid state metadata.
+future_run_labels_excluded_incomplete_innings,892,Observed delivery outcomes remain available; only the truncated innings-total-derived future-run target is excluded.
+future_run_labels_excluded_unknown_completion,2698,Completion uncertainty is not treated as a completed innings.
+par_model_observations_excluded,32,Par estimation uses only first innings with confirmed completion and valid match-state metadata.
+par_model_observations_retained,805,
+valid_delivery_level_run_outcomes_retained,193987,"Actual batter runs and bowler runs remain in the delivery data, including no-result matches; no-result status alone does not remove a delivery target."
+scheduled_ball_limit_unknown_rows,1070,DLS rows without the corresponding revised schedule are not assigned a 120-ball fallback.
+dls_match_state_treatment,21586,"Missing fields: first_inn_revised_overs; affected state-invalid deliveries: 122; missing target/schedule is kept unknown, not imputed; observed delivery outcomes are retained."
+dls_match_state_treatment,21070,"Missing fields: first_inn_revised_overs; affected state-invalid deliveries: 123; missing target/schedule is kept unknown, not imputed; observed delivery outcomes are retained."
+dls_match_state_treatment,24822,"Missing fields: revised_target, first_inn_revised_overs, second_inn_revised_overs; affected state-invalid deliveries: 170; missing target/schedule is kept unknown, not imputed; observed delivery outcomes are retained."
+dls_match_state_treatment,28046,"Missing fields: first_inn_revised_overs; affected state-invalid deliveries: 123; missing target/schedule is kept unknown, not imputed; observed delivery outcomes are retained."
+dls_match_state_treatment,28334,"Missing fields: revised_target, first_inn_revised_overs, second_inn_revised_overs; affected state-invalid deliveries: 218; missing target/schedule is kept unknown, not imputed; observed delivery outcomes are retained."
+dls_match_state_treatment,29984,"Missing fields: first_inn_revised_overs; affected state-invalid deliveries: 66; missing target/schedule is kept unknown, not imputed; observed delivery outcomes are retained."
+dls_match_state_treatment,40749,"Missing fields: first_inn_revised_overs; affected state-invalid deliveries: 121; missing target/schedule is kept unknown, not imputed; observed delivery outcomes are retained."
+dls_match_state_treatment,48611,"Missing fields: first_inn_revised_overs; affected state-invalid deliveries: 127; missing target/schedule is kept unknown, not imputed; observed delivery outcomes are retained."
+deliveries_excluded_from_state_dependent_analysis,1070,Includes unknown targets/schedules and rows without an OOF future-run/par estimate; excluded from pressure and player-event scoring.
+no_result_wpa_events_excluded_from_individual_rankings,1932,"WPA estimates may remain in pressure_deliveries.csv for diagnosis, but no-result matches contribute no player WPA score."
+ambiguous_individual_wpa_attributions,190986,Decisive-match delivery-level team-state WPA proxies retained for diagnostics but deliberately not assigned to a player or included in the composite.
+ambiguous_wpa_proxy_context_ordinary_delivery,169416,Team-state WPA proxy is not individually attributed.
+ambiguous_wpa_proxy_context_other_dismissal,9731,Team-state WPA proxy is not individually attributed.
+ambiguous_wpa_proxy_context_wide,7367,Team-state WPA proxy is not individually attributed.
+ambiguous_wpa_proxy_context_leg_bye,2617,Team-state WPA proxy is not individually attributed.
+ambiguous_wpa_proxy_context_no_ball,810,Team-state WPA proxy is not individually attributed.
+ambiguous_wpa_proxy_context_run_out,542,Team-state WPA proxy is not individually attributed.
+ambiguous_wpa_proxy_context_bye,501,Team-state WPA proxy is not individually attributed.
+ambiguous_wpa_proxy_context_penalty,1,Team-state WPA proxy is not individually attributed.
+ambiguous_wpa_proxy_context_dismissal_missing_player_id,1,Team-state WPA proxy is not individually attributed.

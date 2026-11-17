@@ -1,0 +1,10 @@
+level,component,weight,variance_explained,weight_method,player_type
+scoring_impact,runs_above_expected_per100,0.5,0.9442768246525386,pca,batter
+scoring_impact,boundary_percentage_delta_per100,0.5,0.9442768246525386,pca,batter
+overall_impact,scoring_impact,0.5000000000000016,0.6210277125536167,pca,batter
+overall_impact,wicket_preservation,0.4999999999999985,0.6210277125536167,pca,batter
+bowling_control,runs_saved_per100,0.373582519119922,0.7685083087501807,pca,bowler
+bowling_control,dot_percentage_delta_per100,0.27678523972434577,0.7685083087501807,pca,bowler
+bowling_control,boundary_prevention_per100,0.34963224115573227,0.7685083087501807,pca,bowler
+overall_impact,bowling_control,0.4999999999999993,0.6355987914327464,pca,bowler
+overall_impact,wicket_taking,0.5000000000000008,0.6355987914327464,pca,bowler

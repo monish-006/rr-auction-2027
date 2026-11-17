@@ -1,0 +1,17 @@
+player_type,scenario,pressure_cutoff,min_pressure_opportunities,min_pressure_matches,component_weight_mode,eligible_players,baseline_top10_overlap,top10_jaccard,spearman_rank_correlation
+batter,weights:equal,0.55,30,8,pca,131,7,0.5384615384615384,0.8874643690910734
+bowler,weights:equal,0.55,30,8,pca,178,8,0.6666666666666666,0.9478481553709295
+batter,weights:rate_focused,0.55,30,8,pca,151,8,0.6666666666666666,0.9636801679309193
+bowler,weights:rate_focused,0.55,30,8,pca,159,8,0.6666666666666666,0.9554304991640793
+batter,weights:resource_focused,0.55,30,8,pca,118,8,0.6666666666666666,0.9440999574735223
+bowler,weights:resource_focused,0.55,30,8,pca,167,8,0.6666666666666666,0.9431389463998159
+batter,component_weights:equal,0.55,30,8,equal,137,10,1.0,1.0
+bowler,component_weights:equal,0.55,30,8,equal,165,10,1.0,0.9985467368364814
+batter,cutoff:0.50,0.5,30,8,pca,158,8,0.6666666666666666,0.9338796215003415
+bowler,cutoff:0.50,0.5,30,8,pca,175,9,0.8181818181818182,0.9194480805706197
+batter,cutoff:0.65,0.65,30,8,pca,109,7,0.5384615384615384,0.9134836690064966
+bowler,cutoff:0.65,0.65,30,8,pca,136,9,0.8181818181818182,0.9006822193597633
+batter,eligibility:20/5,0.55,20,5,pca,191,10,1.0,1.0
+bowler,eligibility:20/5,0.55,20,5,pca,227,10,1.0,1.0
+batter,eligibility:50/12,0.55,50,12,pca,100,10,1.0,0.9999999999999999
+bowler,eligibility:50/12,0.55,50,12,pca,118,8,0.6666666666666666,1.0
