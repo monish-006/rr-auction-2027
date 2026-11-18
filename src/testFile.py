@@ -1,25 +1,66 @@
 import pandas as pd
 
-# Load the Excel file
-df_teams = pd.read_csv(r"/Users/monish_006/Documents/RR/Datapack/teams.csv")
+data_dir = "/Users/monish_006/Documents/RR/Datapack"
+df_teams = pd.read_csv(f"{data_dir}/teams.csv")
+df_ball_by_ball = pd.read_csv(f"{data_dir}/ball_by_ball.csv")
 
-# Get england teams
-england_teams = df_teams[df_teams["team_name"] == "England"]
+# Sum each batter's runs for their team.
+player_runs = (
+    df_ball_by_ball.groupby(
+        ["batting_team_id", "striker_id", "striker_name"], as_index=False
+    )["runs"]
+    .sum()
+    .rename(
+        columns={
+            "batting_team_id": "team_id",
+            "striker_name": "player_name",
+            "runs": "total_runs",
+        }
+    )
+)
 
-# Get england team ID
-team_id = england_teams.loc[0].team_id
+# Attach team names, then keep every player tied for the team-high.
+team_names = df_teams[["team_id", "team_name"]].drop_duplicates()
+player_runs = player_runs.merge(
+    team_names, on="team_id", how="left", validate="many_to_one"
+)
+team_high = player_runs.groupby("team_id")["total_runs"].transform("max")
+top_scorers = player_runs.loc[
+    player_runs["total_runs"].eq(team_high),
+    ["team_name", "player_name", "total_runs"],
+].sort_values(["team_name", "total_runs"], ascending=[True, False])
 
-# Get all the England players
-df_playing_eleven = pd.read_csv(r"/Users/monish_006/Documents/RR/Datapack/playing_eleven.csv")
-player_id_eng = df_playing_eleven[df_playing_eleven["team_id"] == team_id]
+print(top_scorers.to_string(index=False))
 
-print(player_id_eng.player_id.unique())
-print(len(player_id_eng.player_id.unique()))
+# Count wickets credited to bowlers; run-outs and other uncredited dismissals
+# are excluded.
+credited_dismissals = ["Caught", "Bowled", "LBW", "Stump", "Hit Wicket"]
+wicket_deliveries = df_ball_by_ball[
+    df_ball_by_ball["is_wicket"]
+    & df_ball_by_ball["dismissal_type"].isin(credited_dismissals)
+]
+bowler_wickets = (
+    wicket_deliveries.groupby(
+        ["bowling_team_id", "bowler_id", "bowler_name"], as_index=False
+    )
+    .size()
+    .rename(
+        columns={
+            "bowling_team_id": "team_id",
+            "size": "total_wickets",
+        }
+    )
+    .merge(team_names, on="team_id", how="left", validate="many_to_one")
+)
 
-df_comp_player = pd.read_csv(r"/Users/monish_006/Documents/RR/Datapack/competition_team_player_mapping.csv")
-player_name_eng = df_comp_player[df_comp_player["player_id"].isin(player_id_eng["player_id"])]
-print(player_name_eng.player_name.unique())
+team_wicket_high = bowler_wickets.groupby("team_id")["total_wickets"].transform(
+    "max"
+)
+top_wicket_takers = bowler_wickets.loc[
+    bowler_wickets["total_wickets"].eq(team_wicket_high),
+    ["team_name", "bowler_name", "total_wickets"],
+].sort_values(["team_name", "total_wickets"], ascending=[True, False])
 
-df_ball_by_ball = pd.read_csv(r"/Users/monish_006/Documents/RR/Datapack/ball_by_ball.csv.csv")
-print(df_ball_by_ball.strik)
+print("\nHighest wicket-taker(s) for each team:")
+print(top_wicket_takers.to_string(index=False))
 

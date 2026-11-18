@@ -1,0 +1,16 @@
+# Generated output
+output/
+
+# Keep only final deliverables
+output_batting_order_roles_final_2026-11-18/*
+!output_batting_order_roles_final_2026-11-18/top_10_batters.csv
+!output_batting_order_roles_final_2026-11-18/top_10_bowlers.csv
+!output_batting_order_roles_final_2026-11-18/plots/
+!output_batting_order_roles_final_2026-11-18/plots/**
+
+# Python files
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
