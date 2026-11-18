@@ -18,6 +18,7 @@ from src.pressure_rankings.config import (
 from src.pressure_rankings.data import load_and_prepare
 from src.pressure_rankings.models import fit_oof_expectations
 from src.pressure_rankings.reporting import write_outputs
+from src.pressure_rankings.roles import build_role_leaderboards
 from src.pressure_rankings.impact import (
     build_player_events,
     compare_rankings,
@@ -241,6 +242,14 @@ def run_pipeline(data_dir=DEFAULT_DATA_DIR, output_dir=DEFAULT_OUTPUT_DIR):
         bowler_component_weights,
     ) = rank_players(bowler_events)
 
+    role_leaderboards = build_role_leaderboards(
+        batter_metrics,
+        bowler_metrics,
+        pressured,
+        batter_eligible,
+        bowler_eligible,
+    )
+
     sensitivity_rankings, ranking_stability = _run_sensitivity(
         pressured,
         batter_events,
@@ -254,11 +263,11 @@ def run_pipeline(data_dir=DEFAULT_DATA_DIR, output_dir=DEFAULT_OUTPUT_DIR):
         schema_audit=schema_audit,
         validation=validation,
         batter_metrics=batter_metrics,
-        batter_top=batter_eligible.head(10),
+        batter_top=role_leaderboards["batters"].head(10),
         batter_match_metrics=batter_match_metrics,
         batter_format_metrics=batter_format_metrics,
         bowler_metrics=bowler_metrics,
-        bowler_top=bowler_eligible.head(10),
+        bowler_top=role_leaderboards["bowlers"].head(10),
         bowler_match_metrics=bowler_match_metrics,
         bowler_format_metrics=bowler_format_metrics,
         sensitivity_rankings=sensitivity_rankings,
@@ -269,6 +278,9 @@ def run_pipeline(data_dir=DEFAULT_DATA_DIR, output_dir=DEFAULT_OUTPUT_DIR):
             [batter_component_weights, bowler_component_weights],
             ignore_index=True,
         ),
+        role_classification=role_leaderboards["role_classification"],
+        unclassified_players=role_leaderboards["unclassified_players"],
+        leaderboard_changes=role_leaderboards["leaderboard_changes"],
     )
 
     output_dir = Path(output_dir)
@@ -293,9 +305,22 @@ def run_pipeline(data_dir=DEFAULT_DATA_DIR, output_dir=DEFAULT_OUTPUT_DIR):
         .round(3)
         .to_string(index=False)
     )
+    role_counts = role_leaderboards["role_classification"][
+        "assigned_role"
+    ].value_counts()
+    print(
+        "\nRole counts: "
+        f"BATTER={int(role_counts.get('BATTER', 0))}, "
+        f"BOWLER={int(role_counts.get('BOWLER', 0))}, "
+        f"UNCLASSIFIED={int(role_counts.get('UNCLASSIFIED', 0))}"
+    )
+    print(
+        "Invalid position-12 player-innings excluded from role percentages: "
+        f"{int(role_leaderboards['role_classification']['position_12_innings'].sum())}"
+    )
     for label, top in (
-        ("Top batters", batter_eligible.head(10)),
-        ("Top bowlers", bowler_eligible.head(10)),
+        ("Top batters", role_leaderboards["batters"].head(10)),
+        ("Top bowlers", role_leaderboards["bowlers"].head(10)),
     ):
         print(f"\n{label} ({len(top)} eligible):")
         if top.empty:
@@ -307,17 +332,37 @@ def run_pipeline(data_dir=DEFAULT_DATA_DIR, output_dir=DEFAULT_OUTPUT_DIR):
                         "rank",
                         "player_name",
                         "ranking_score",
-                        "pressure_opportunities",
-                        "pressure_matches",
+                        "batting_pressure_opportunities"
+                        if label == "Top batters"
+                        else "bowling_pressure_opportunities",
+                        "batting_pressure_matches"
+                        if label == "Top batters"
+                        else "bowling_pressure_matches",
                     ]
                 ]
                 .round(3)
                 .to_string(index=False)
             )
+    print("\nLeaderboard changes from previous top 10:")
+    print(
+        role_leaderboards["leaderboard_changes"][
+            [
+                "leaderboard",
+                "retained_count",
+                "moved_out_count",
+                "moved_in_count",
+            ]
+        ].to_string(index=False)
+    )
     print(f"\nOutputs written to {output_dir.resolve()}")
     return {
         "batter_rankings": batter_eligible,
         "bowler_rankings": bowler_eligible,
+        "role_classification": role_leaderboards["role_classification"],
+        "top_batters": role_leaderboards["batters"],
+        "top_bowlers": role_leaderboards["bowlers"],
+        "unclassified_players": role_leaderboards["unclassified_players"],
+        "leaderboard_changes": role_leaderboards["leaderboard_changes"],
         "validation": validation,
         "format_comparison": format_comparison,
         "ranking_stability": ranking_stability,

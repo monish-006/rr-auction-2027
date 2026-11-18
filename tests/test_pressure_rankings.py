@@ -14,11 +14,179 @@ from src.pressure_rankings.scoring import (
     build_player_events,
     calculate_pressure,
 )
+from src.pressure_rankings.config import PRESSURE_CUTOFF
 from src.pressure_rankings.impact import (
     build_player_events as build_impact_events,
     rank_players,
 )
+from src.pressure_rankings.roles import (
+    BATTER,
+    BOWLER,
+    UNCLASSIFIED,
+    _build_batting_order_history,
+    build_role_leaderboards,
+)
 
+
+class PlayerRoleLeaderboardTests(unittest.TestCase):
+    @staticmethod
+    def _metrics(player_ids, scores, eligible=None):
+        if eligible is None:
+            eligible = [True] * len(player_ids)
+        return pd.DataFrame(
+            {
+                "metric_scope": ["overall"] * len(player_ids),
+                "player_id": player_ids,
+                "player_name": [f"Player {player_id}" for player_id in player_ids],
+                "eligible": eligible,
+                "rank": range(1, len(player_ids) + 1),
+                "ranking_score": scores,
+                "pressure_composite": scores,
+                "normal_composite": [score - 0.1 for score in scores],
+                "clutch_uplift": [0.1] * len(player_ids),
+                "pressure_opportunities": [40] * len(player_ids),
+                "pressure_matches": [9] * len(player_ids),
+                "normal_opportunities": [40] * len(player_ids),
+                "sample_shrinkage": [0.5] * len(player_ids),
+                "consistency_factor": [0.8] * len(player_ids),
+                "stability_factor": [0.9] * len(player_ids),
+            }
+        )
+
+    @staticmethod
+    def _deliveries():
+        orders = {
+            1: [4] * 7 + [8] * 3,
+            2: [11] * 4 + [1],
+            3: [1] * 3 + [8] * 2,
+            4: [2] * 4,
+            5: [1] * 4 + [12],
+        }
+        rows = []
+        match_id = 1
+        for player_id, player_orders in orders.items():
+            for order in player_orders:
+                for _ in range(2):
+                    rows.append(
+                        {
+                            "match_id": match_id,
+                            "innings": 1,
+                            "striker_id": player_id,
+                            "striker_name": f"Player {player_id}",
+                            "batting_order": order,
+                        }
+                    )
+                match_id += 1
+        return pd.DataFrame(rows)
+
+    def _build(self, batting_eligible=None, bowling_eligible=None):
+        player_ids = [1, 2, 3, 4, 5, 6]
+        batter_metrics = self._metrics(
+            player_ids,
+            [0.9, 0.8, 0.7, 0.6, 0.5, 0.4],
+            batting_eligible,
+        )
+        bowler_metrics = self._metrics(
+            player_ids,
+            [0.8, 0.9, 0.7, 0.6, 0.5, 0.4],
+            bowling_eligible,
+        )
+        previous = pd.DataFrame(
+            {
+                "player_id": [1, 2],
+                "player_name": ["Player 1", "Player 2"],
+            }
+        )
+        result = build_role_leaderboards(
+            batter_metrics,
+            bowler_metrics,
+            self._deliveries(),
+            previous,
+            previous,
+        )
+        return result, batter_metrics, bowler_metrics
+
+    def test_player_innings_are_counted_once_not_per_delivery(self):
+        history = _build_batting_order_history(self._deliveries())
+        player = history.set_index("player_id").loc[1]
+        self.assertEqual(player["total_innings"], 10)
+        self.assertEqual(player["valid_batting_order_innings"], 10)
+        self.assertEqual(player["batting_order_1_7_innings"], 7)
+        self.assertAlmostEqual(player["batting_order_1_7_pct"], 0.70)
+
+    def test_seventy_percent_threshold_and_five_innings_minimum(self):
+        result, _, _ = self._build()
+        roles = result["role_classification"].set_index("player_id")
+        self.assertEqual(roles.loc[1, "assigned_role"], BATTER)
+        self.assertEqual(roles.loc[2, "assigned_role"], BOWLER)
+        self.assertEqual(roles.loc[3, "assigned_role"], UNCLASSIFIED)
+        self.assertEqual(roles.loc[3, "role_resolution"], "mixed_batting_order_distribution")
+        self.assertEqual(roles.loc[4, "role_resolution"], "insufficient_batting_order_history")
+
+    def test_position_twelve_is_reported_but_not_used_for_history_or_percentages(self):
+        result, _, _ = self._build()
+        player = result["role_classification"].set_index("player_id").loc[5]
+        self.assertEqual(player["total_innings"], 5)
+        self.assertEqual(player["valid_batting_order_innings"], 4)
+        self.assertEqual(player["position_12_innings"], 1)
+        self.assertEqual(player["invalid_batting_order_innings"], 1)
+        self.assertEqual(player["assigned_role"], UNCLASSIFIED)
+
+    def test_role_filtering_is_exclusive_and_retains_unclassified_metrics(self):
+        result, batter_metrics, bowler_metrics = self._build()
+        self.assertEqual(result["batters"]["player_id"].tolist(), [1])
+        self.assertEqual(result["bowlers"]["player_id"].tolist(), [2])
+        self.assertTrue(
+            set(result["batters"]["player_id"]).isdisjoint(
+                result["bowlers"]["player_id"]
+            )
+        )
+        unresolved = result["unclassified_players"].set_index("player_id")
+        self.assertAlmostEqual(unresolved.loc[3, "batting_ranking_score"], 0.7)
+        self.assertIn(3, set(batter_metrics["player_id"]))
+        self.assertIn(3, set(bowler_metrics["player_id"]))
+
+    def test_existing_eligibility_and_scores_are_unchanged(self):
+        self.assertEqual(PRESSURE_CUTOFF, 0.55)
+        player_ids = [1, 2, 3, 4, 5, 6]
+        batter_metrics = self._metrics(
+            player_ids,
+            [0.9, 0.8, 0.7, 0.6, 0.5, 0.4],
+            [False, True, True, True, True, True],
+        )
+        bowler_metrics = self._metrics(
+            player_ids,
+            [0.8, 0.9, 0.7, 0.6, 0.5, 0.4],
+            [True, False, True, True, True, True],
+        )
+        original_batter_metrics = batter_metrics.copy(deep=True)
+        original_bowler_metrics = bowler_metrics.copy(deep=True)
+        previous = pd.DataFrame(
+            {"player_id": [1, 2], "player_name": ["Player 1", "Player 2"]}
+        )
+        result = build_role_leaderboards(
+            batter_metrics,
+            bowler_metrics,
+            self._deliveries(),
+            previous,
+            previous,
+        )
+        self.assertTrue(result["batters"].empty)
+        self.assertTrue(result["bowlers"].empty)
+        roles = result["role_classification"].set_index("player_id")
+        self.assertEqual(roles.loc[1, "batting_ranking_score"], 0.9)
+        self.assertEqual(roles.loc[2, "bowling_ranking_score"], 0.9)
+        self.assertEqual(PRESSURE_CUTOFF, 0.55)
+        pd.testing.assert_frame_equal(batter_metrics, original_batter_metrics)
+        pd.testing.assert_frame_equal(bowler_metrics, original_bowler_metrics)
+
+    def test_previous_leaderboard_changes_are_counted(self):
+        result, _, _ = self._build()
+        changes = result["leaderboard_changes"].set_index("leaderboard")
+        self.assertEqual(changes.loc["BATTER", "moved_out_count"], 1)
+        self.assertEqual(changes.loc["BATTER", "moved_in_count"], 0)
+        self.assertEqual(changes.loc["BOWLER", "moved_out_count"], 1)
+        self.assertEqual(changes.loc["BOWLER", "moved_in_count"], 0)
 
 class PressureScoringTests(unittest.TestCase):
     def test_pressure_index_is_bounded_and_first_innings_has_no_leverage(self):

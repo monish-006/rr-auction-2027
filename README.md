@@ -29,10 +29,10 @@ Put all six files in one directory:
 
 | File | How the pipeline uses it |
 | --- | --- |
-| `ball_by_ball.csv` | Delivery outcomes, player IDs, extras, wickets, and over/ball order. |
+| `ball_by_ball.csv` | Delivery outcomes, player IDs, extras, wickets, over/ball order, and `batting_order` used for player-role classification. |
 | `matches.csv` | Connects `match_id` to competitions, teams, match dates, revised targets/innings limits, and the final winning team used as the win-probability model's training label. |
 | `competitions.csv` | Supplies competition names, formats, and seasons via `comp_id`. |
-| `playing_eleven.csv` | Checks match/team/player participation and supplies batting order for dismissal attribution. |
+| `playing_eleven.csv` | Checks match/team/player participation and supplies roster batting order for dismissal attribution; its `is_wk` field is not used for role classification. |
 | `teams.csv` | Included in the source audit; duplicate `(comp_id, team_id)` keys are counted. |
 | `competition_team_player_mapping.csv` | Included in the source audit; duplicate `(comp_id, team_id, player_id)` keys are counted. |
 
@@ -80,6 +80,7 @@ The code is split into small modules:
 | `src/pressure_rankings/models.py` | Fits context-based models and generates match-grouped out-of-fold predictions. |
 | `src/pressure_rankings/scoring.py` | Computes the pre-delivery pressure index and retains the original run/wicket scoring helpers. |
 | `src/pressure_rankings/impact.py` | Attributes batting/bowling event metrics, learns PCA component weights, and creates overall and phase leaderboards. |
+| `src/pressure_rankings/roles.py` | Classifies players from unique batting-order innings and filters batter/bowler leaderboards without changing impact scores. |
 | `src/pressure_rankings/reporting.py` | Writes CSVs, charts, and the generated methodology report. |
 
 `src/testFile.py` and `src/phase_performance.py` are separate earlier exploratory scripts; `main.py` does not use them.
@@ -177,12 +178,21 @@ It is further adjusted by match consistency (`0.5 + 0.5 × share of pressure mat
 
 Baseline eligibility requires at least **30 pressure opportunities**, **8 pressure matches**, and **30 normal opportunities**. Batters' opportunities are batter opportunities as defined above; bowlers' opportunities are deliveries bowled. Players who did not bat or bowl have no opportunities and are not given artificial zeroes. If fewer than ten players meet the criteria, the output contains only eligible players.
 
+### 4.7 Batting-order roles and filtered leaderboards
+
+The pipeline uses `ball_by_ball.csv`'s `striker_id` and `batting_order`, counting each player once per match and innings. At least five valid player-innings are required. A player is classified as BATTER when at least 70% of valid innings are in positions 1–7, and BOWLER when at least 70% are in positions 8–11. All others are UNCLASSIFIED. Position 12 and other invalid/missing/conflicting orders do not count toward the percentages or five-innings minimum; they are reported separately. Total innings still includes innings with invalid order values.
+
+Only eligible BATTERs appear in the batter leaderboard and only eligible BOWLERS in the bowler leaderboard. UNCLASSIFIED players appear in neither list, but their performance metrics remain in `player_metrics.csv` and their history/discipline scores remain in `player_role_classification.csv`. Each list is reranked independently using its existing discipline ranking score. Pressure, expected-performance models, PCA, reliability adjustments, and existing eligibility requirements are unchanged.
+
 ## 5. Output files
 
 | File | Contents |
 | --- | --- |
 | `top_10_batters.csv` | Up to ten eligible batters, ranked by the reliability-adjusted composite, with pressure/normal component summaries. |
 | `top_10_bowlers.csv` | Up to ten eligible bowlers with pressure/normal run, dot, boundary, and wicket summaries. |
+| `player_role_classification.csv` | Batting-order counts, percentages, valid/invalid innings, role assignment, and batting/bowling scores and eligibility. |
+| `unclassified_players.csv` | Players not classified as BATTER or BOWLER, with the reason and their underlying discipline metrics. |
+| `leaderboard_changes.csv` | Retained, moved-out, and moved-in counts and player IDs versus the previous eligible top tens. |
 | `phase_leaderboards.csv` | Eligible batter and bowler leaderboards by powerplay, middle, and slog phase, including component metrics. |
 | `player_metrics.csv` | Overall and format/role/phase metrics, including actual/expected rates, pressure/normal composite scores, clutch uplift, sample counts, consistency, and stability. It does not contain individual WPA contributions. |
 | `component_weights.csv` | Learned PCA loading weights and explained variance; equal-weight results are available in the sensitivity rankings. |

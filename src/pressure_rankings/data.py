@@ -371,9 +371,13 @@ def load_and_prepare(data_dir):
         & selected_ball["state_valid"]
     )
 
-    player_roster = playing_eleven[
-        ["match_id", "team_id", "player_id", "batting_order"]
-    ].drop_duplicates()
+    roster_columns = ["match_id", "team_id", "player_id", "batting_order"]
+    roster_columns.extend(
+        column
+        for column in ("is_played", "is_wk")
+        if column in playing_eleven.columns
+    )
+    player_roster = playing_eleven[roster_columns].drop_duplicates()
     batters = selected_ball[
         ["match_id", "batting_team_id", "striker_id"]
     ].drop_duplicates()

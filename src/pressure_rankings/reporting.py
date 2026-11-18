@@ -285,6 +285,8 @@ def _write_methodology_report(
     component_weights,
     batter_phase_leaderboards,
     bowler_phase_leaderboards,
+    role_classification,
+    leaderboard_changes,
 ):
     format_counts = (
         prepared.groupby("competition_format")["match_id"].nunique().to_dict()
@@ -317,6 +319,22 @@ def _write_methodology_report(
         ignore_index=True,
         sort=False,
     ).sort_values(["player_type", "phase", "rank"], kind="stable")
+    role_counts = role_classification["assigned_role"].value_counts()
+    eligible_batters = int(
+        (
+            role_classification["assigned_role"].eq("BATTER")
+            & role_classification["batting_eligible"]
+        ).sum()
+    )
+    eligible_bowlers = int(
+        (
+            role_classification["assigned_role"].eq("BOWLER")
+            & role_classification["bowling_eligible"]
+        ).sum()
+    )
+    position_12_innings = int(
+        role_classification["position_12_innings"].sum()
+    )
     report = f"""# IPL and T20I Pressure Player Rankings (2022 onward)
 
 Generated: {generated}
@@ -383,11 +401,23 @@ Baseline eligibility requires at least **{MIN_PRESSURE_OPPORTUNITIES} pressure d
 
 ### Top batters
 
-{_markdown_table(batter_top, ['rank', 'player_name', 'ranking_score', 'pressure_runs_above_expected_per100', 'pressure_strike_rate_impact', 'pressure_boundary_percentage_delta_per100', 'pressure_wicket_preservation_per100', 'pressure_composite', 'normal_composite', 'clutch_uplift', 'pressure_opportunities', 'pressure_matches'])}
+{_markdown_table(batter_top, ['rank', 'player_name', 'previous_rank', 'ranking_score', 'batting_pressure_runs_above_expected_per100', 'batting_pressure_strike_rate_impact', 'batting_pressure_boundary_percentage_delta_per100', 'batting_pressure_wicket_preservation_per100', 'batting_pressure_composite', 'batting_normal_composite', 'batting_clutch_uplift', 'batting_pressure_opportunities', 'batting_pressure_matches'])}
 
 ### Top bowlers
 
-{_markdown_table(bowler_top, ['rank', 'player_name', 'ranking_score', 'pressure_runs_saved_per100', 'pressure_dot_percentage_delta_per100', 'pressure_boundary_prevention_per100', 'pressure_wicket_impact_per100', 'pressure_composite', 'normal_composite', 'clutch_uplift', 'pressure_opportunities', 'pressure_matches'])}
+{_markdown_table(bowler_top, ['rank', 'player_name', 'previous_rank', 'ranking_score', 'bowling_pressure_runs_saved_per100', 'bowling_pressure_dot_percentage_delta_per100', 'bowling_pressure_boundary_prevention_per100', 'bowling_pressure_wicket_impact_per100', 'bowling_pressure_composite', 'bowling_normal_composite', 'bowling_clutch_uplift', 'bowling_pressure_opportunities', 'bowling_pressure_matches'])}
+
+### Batting-order roles and filtered leaderboards
+
+Roles are assigned from each player's batting-order history, grouped by `player_id` and counted once per match/innings. At least five valid player-innings are required. BATTER means at least 70% of valid innings were at positions 1–7; BOWLER means at least 70% of valid innings were at positions 8–11; all other players are UNCLASSIFIED. Percentages and the five-innings minimum use only valid positions 1–11. The **{position_12_innings}** position-12 innings are excluded from those percentages and reported in `player_role_classification.csv`; they remain included in `total_innings`. UNCLASSIFIED players appear in neither top-ten list, but their performance rows and scores remain in `player_metrics.csv`.
+
+Classified player counts: **{int(role_counts.get('BATTER', 0))} BATTER**, **{int(role_counts.get('BOWLER', 0))} BOWLER**, and **{int(role_counts.get('UNCLASSIFIED', 0))} UNCLASSIFIED**. Of these, **{eligible_batters} BATTERs** and **{eligible_bowlers} BOWLERS** meet the existing pressure-ranking eligibility requirements. The baseline pressure cutoff, impact scores, PCA weights, reliability adjustments, and eligibility requirements are unchanged. Only role-specific leaderboard membership and within-list ranks differ.
+
+#### Changes from previous top-ten rankings
+
+Moved-in/out counts compare the current unfiltered eligible top ten with the role-filtered top ten. The names and IDs are also saved in `leaderboard_changes.csv`.
+
+{_markdown_table(leaderboard_changes, ['leaderboard', 'previous_top_10_count', 'updated_top_10_count', 'retained_count', 'moved_out_count', 'moved_in_count', 'moved_out_players', 'moved_in_players'], limit=10)}
 
 ### Phase leaderboards
 
@@ -425,7 +455,7 @@ Install dependencies from `requirements.txt`, then run `python main.py --data-di
 
 ## Output files
 
-`top_10_batters.csv`, `top_10_bowlers.csv`, `phase_leaderboards.csv`, `player_metrics.csv`, `component_weights.csv`, `pressure_deliveries.csv`, `match_performance.csv`, `consistency.csv`, `format_comparison.csv`, `model_validation.csv`, `data_quality.csv`, `source_schema_audit.csv`, `sensitivity_rankings.csv`, `ranking_stability.csv`, and four PNG files under `plots/`.
+`top_10_batters.csv`, `top_10_bowlers.csv`, `player_role_classification.csv`, `unclassified_players.csv`, `leaderboard_changes.csv`, `phase_leaderboards.csv`, `player_metrics.csv`, `component_weights.csv`, `pressure_deliveries.csv`, `match_performance.csv`, `consistency.csv`, `format_comparison.csv`, `model_validation.csv`, `data_quality.csv`, `source_schema_audit.csv`, `sensitivity_rankings.csv`, `ranking_stability.csv`, and four PNG files under `plots/`.
 """
     path.write_text(report, encoding="utf-8")
 
@@ -449,6 +479,9 @@ def write_outputs(
     batter_phase_leaderboards,
     bowler_phase_leaderboards,
     component_weights,
+    role_classification,
+    unclassified_players,
+    leaderboard_changes,
 ):
     output_dir = Path(output_dir)
     plots_dir = output_dir / "plots"
@@ -458,6 +491,12 @@ def write_outputs(
     bowler_top = bowler_top.head(10)
     _safe_csv(batter_top, output_dir / "top_10_batters.csv")
     _safe_csv(bowler_top, output_dir / "top_10_bowlers.csv")
+    _safe_csv(
+        role_classification,
+        output_dir / "player_role_classification.csv",
+    )
+    _safe_csv(unclassified_players, output_dir / "unclassified_players.csv")
+    _safe_csv(leaderboard_changes, output_dir / "leaderboard_changes.csv")
     _safe_csv(
         pd.concat(
             [
@@ -551,5 +590,7 @@ def write_outputs(
         component_weights,
         batter_phase_leaderboards,
         bowler_phase_leaderboards,
+        role_classification,
+        leaderboard_changes,
     )
     return format_comparison
